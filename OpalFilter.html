@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hệ thống ra quyết định 9 câu – Checklist</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --yes: #3fb950;
+      --no: #f85149;
+      --threshold: #58a6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .mode-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .mode-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .mode-toggle input { accent-color: var(--threshold); }
+    .mode-toggle input:checked + span { font-weight: 600; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem 0;
+      color: var(--muted);
+    }
+    .question-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 0.75rem;
+      margin: 0 -0.75rem 0.25rem;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      border-radius: 6px;
+    }
+    .question-row:last-child { margin-bottom: 0; }
+    .question-row:has(input[value="yes"]:checked) {
+      background: rgba(63, 185, 80, 0.18) !important;
+      box-shadow: 0 0 0 1px rgba(63, 185, 80, 0.4);
+    }
+    .mode-small .question-row.full-only { display: none; }
+    /* Tầng 1: Hai trụ nền tảng (câu 1–2) */
+    .question-row.tier-1 { background: rgba(63, 185, 80, 0.08); border-left: 3px solid var(--yes); }
+    /* Tầng 2: An toàn hệ thống (câu 3–5) */
+    .question-row.tier-2 { background: rgba(88, 166, 255, 0.08); border-left: 3px solid var(--threshold); }
+    /* Tầng 3: Tăng trưởng (câu 6–7) */
+    .question-row.tier-3 { background: rgba(210, 153, 34, 0.1); border-left: 3px solid #d29922; }
+    /* Tầng 4: Bản sắc (câu 8) */
+    .question-row.tier-4 { background: rgba(163, 113, 247, 0.1); border-left: 3px solid #a371f7; }
+    /* Tầng 5: Sinh tồn (câu 9) */
+    .question-row.tier-5 { background: rgba(248, 81, 73, 0.08); border-left: 3px solid var(--no); }
+    .question-text {
+      font-size: 0.95rem;
+    }
+    .question-num {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-right: 0.25rem;
+    }
+    .choices {
+      display: flex;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+    .choices label {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: color 0.15s ease;
+    }
+    .choices label:has(input[value="yes"]:checked) { color: var(--yes); font-weight: 600; }
+    .choices label:has(input[value="no"]:checked) { color: var(--no); font-weight: 600; }
+    .choices input[type="radio"] { accent-color: var(--yes); }
+    .choices .no-opt input { accent-color: var(--no); }
+    .choices .score-inline {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .choices label:has(input[value="yes"]) .score-inline { color: var(--yes); }
+    .choices label.no-opt .score-inline { color: var(--no); }
+    .result-box {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      text-align: center;
+    }
+    .result-box .score {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    .result-box .threshold {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    .result-box .verdict {
+      margin-top: 0.75rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .result-box.do { border-color: var(--yes); background: rgba(63, 185, 80, 0.1); }
+    .result-box.do .verdict { color: var(--yes); }
+    .result-box.dont { border-color: var(--no); background: rgba(248, 81, 73, 0.1); }
+    .result-box.dont .verdict { color: var(--no); }
+    .result-box.pending { border-color: var(--border); }
+    .result-box.pending .verdict { color: var(--muted); }
+    .rules-note {
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hệ thống ra quyết định 9 câu</h1>
+    <p class="subtitle">Phiên bản chuẩn hóa - có điểm âm & ngưỡng cố định</p>
+
+    <div class="mode-toggle">
+      <label>
+        <input type="radio" name="mode" value="small" checked />
+        <span>Task nhỏ (3 câu đầu, ngưỡng ≥ 5)</span>
+      </label>
+      <label>
+        <input type="radio" name="mode" value="full" />
+        <span>Quyết định lớn (9 câu, ngưỡng ≥ 14)</span>
+      </label>
+    </div>
+
+    <div class="result-box pending" id="resultBox">
+      <div class="score" id="scoreDisplay">—</div>
+      <div class="threshold" id="thresholdDisplay">Chọn mode và trả lời các câu hỏi</div>
+      <div class="verdict" id="verdictDisplay">—</div>
+    </div>
+
+    <div class="card mode-small" id="card">
+      <h2>Bảng chấm điểm</h2>
+      <form id="checklist">
+        <div class="question-row tier-1" data-q="1">
+          <span class="question-text"><span class="question-num">1.</span> Không làm tôi mất ngủ hoặc stress kéo dài quá 7 ngày liên tiếp?</span>
+          <div class="choices">
+            <label><input type="radio" name="q1" value="yes" /> Có <span class="score-inline">+4</span></label>
+            <label class="no-opt"><input type="radio" name="q1" value="no" /> Không <span class="score-inline">-5</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-1" data-q="2">
+          <span class="question-text"><span class="question-num">2.</span> Không làm tôi xa gia đình quá mức hoặc phá vỡ vai trò làm cha/chồng?</span>
+          <div class="choices">
+            <label><input type="radio" name="q2" value="yes" /> Có <span class="score-inline">+4</span></label>
+            <label class="no-opt"><input type="radio" name="q2" value="no" /> Không <span class="score-inline">-5</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-2" data-q="3">
+          <span class="question-text"><span class="question-num">3.</span> Có thể tự mình tôi đảo ngược trong 1–2 tuần nếu sai?</span>
+          <div class="choices">
+            <label><input type="radio" name="q3" value="yes" /> Có <span class="score-inline">+3</span></label>
+            <label class="no-opt"><input type="radio" name="q3" value="no" /> Không <span class="score-inline">-4</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-2 full-only" data-q="4">
+          <span class="question-text"><span class="question-num">4.</span> Nếu xấu hơn 30%, tôi vẫn chịu được mà không làm hệ thống tổng thể sụp đổ?</span>
+          <div class="choices">
+            <label><input type="radio" name="q4" value="yes" /> Có <span class="score-inline">+2</span></label>
+            <label class="no-opt"><input type="radio" name="q4" value="no" /> Không <span class="score-inline">-3</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-2 full-only" data-q="5">
+          <span class="question-text"><span class="question-num">5.</span> Làm hệ thống sống bền hơn (kỹ năng, tài chính, quan hệ, sức khỏe)?</span>
+          <div class="choices">
+            <label><input type="radio" name="q5" value="yes" /> Có <span class="score-inline">+2</span></label>
+            <label class="no-opt"><input type="radio" name="q5" value="no" /> Không <span class="score-inline">-4</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-3 full-only" data-q="6">
+          <span class="question-text"><span class="question-num">6.</span> Giúp tăng, bảo vệ kinh tế một cách thực chất (có cơ sở rõ ràng, không chỉ kỳ vọng)?</span>
+          <div class="choices">
+            <label><input type="radio" name="q6" value="yes" /> Có <span class="score-inline">+3</span></label>
+            <label class="no-opt"><input type="radio" name="q6" value="no" /> Không <span class="score-inline">-3</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-3 full-only" data-q="7">
+          <span class="question-text"><span class="question-num">7.</span> Tạo tích lũy hoặc đột phá dài hạn có thể đo lường được (kỹ năng, vị thế, cơ hội)?</span>
+          <div class="choices">
+            <label><input type="radio" name="q7" value="yes" /> Có <span class="score-inline">+3</span></label>
+            <label class="no-opt"><input type="radio" name="q7" value="no" /> Không <span class="score-inline">0</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-4 full-only" data-q="8">
+          <span class="question-text"><span class="question-num">8.</span> Việc này có nuôi dưỡng bản sắc tôi muốn trở thành (12 tháng và 10 năm tới)?</span>
+          <div class="choices">
+            <label><input type="radio" name="q8" value="yes" /> Có <span class="score-inline">+1</span></label>
+            <label class="no-opt"><input type="radio" name="q8" value="no" /> Không <span class="score-inline">0</span></label>
+          </div>
+        </div>
+        <div class="question-row tier-5 full-only" data-q="9">
+          <span class="question-text"><span class="question-num">9.</span> Tôi đang ở trạng thái rủi ro sinh tồn tài chính thực sự (có số liệu xác nhận)?</span>
+          <div class="choices">
+            <label><input type="radio" name="q9" value="yes" /> Có <span class="score-inline">+6</span></label>
+            <label class="no-opt"><input type="radio" name="q9" value="no" /> Không <span class="score-inline">0</span></label>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <p class="rules-note">
+      Tổng ≥ ngưỡng → Làm · Tổng &lt; ngưỡng → Không làm. Trả lời trung thực; nếu cảm xúc mạnh, đợi 24h rồi chấm lại.
+    </p>
+  </div>
+
+  <script>
+    const SCORES = {
+      1: { yes: 4, no: -5 },
+      2: { yes: 4, no: -5 },
+      3: { yes: 3, no: -4 },
+      4: { yes: 2, no: -3 },
+      5: { yes: 2, no: -4 },
+      6: { yes: 3, no: -3 },
+      7: { yes: 3, no: 0 },
+      8: { yes: 1, no: 0 },
+      9: { yes: 6, no: 0 },
+    };
+    const MODES = {
+      small: { questions: [1, 2, 3], threshold: 5, label: 'Task nhỏ (3 câu)' },
+      full: { questions: [1, 2, 3, 4, 5, 6, 7, 8, 9], threshold: 14, label: 'Quyết định lớn (9 câu)' },
+    };
+
+    const form = document.getElementById('checklist');
+    const modeInputs = document.querySelectorAll('input[name="mode"]');
+    const resultBox = document.getElementById('resultBox');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const thresholdDisplay = document.getElementById('thresholdDisplay');
+    const verdictDisplay = document.getElementById('verdictDisplay');
+
+    function getMode() {
+      return document.querySelector('input[name="mode"]:checked').value;
+    }
+
+    function computeScore() {
+      const mode = getMode();
+      const qs = MODES[mode].questions;
+      let total = 0;
+      let allAnswered = true;
+      for (const q of qs) {
+        const el = form.querySelector(`input[name="q${q}"]:checked`);
+        if (!el) {
+          allAnswered = false;
+          break;
+        }
+        total += SCORES[q][el.value];
+      }
+      return { total, allAnswered, mode };
+    }
+
+    function updateResult() {
+      const { total, allAnswered, mode } = computeScore();
+      const { threshold, label } = MODES[mode];
+
+      document.getElementById('card').classList.toggle('mode-small', mode === 'small');
+
+      scoreDisplay.textContent = allAnswered ? total : '—';
+      thresholdDisplay.textContent = `${label} - Ngưỡng: ≥ ${threshold} → Làm`;
+
+      resultBox.classList.remove('do', 'dont', 'pending');
+      if (!allAnswered) {
+        resultBox.classList.add('pending');
+        verdictDisplay.textContent = 'Trả lời đủ câu để xem kết quả';
+        return;
+      }
+      if (total >= threshold) {
+        resultBox.classList.add('do');
+        verdictDisplay.textContent = '→ Làm';
+      } else {
+        resultBox.classList.add('dont');
+        verdictDisplay.textContent = '→ Không làm';
+      }
+    }
+
+    form.querySelectorAll('input[type="radio"]').forEach((input) => {
+      input.addEventListener('change', updateResult);
+    });
+    modeInputs.forEach((input) => {
+      input.addEventListener('change', updateResult);
+    });
+
+    updateResult();
+  </script>
+</body>
+</html>
